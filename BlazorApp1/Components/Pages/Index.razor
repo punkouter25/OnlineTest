@@ -6,23 +6,38 @@
 @using Azure.AI.OpenAI;
 @using Azure.Identity;
 @using Azure;
+@using OnlineTest.Models
 @rendermode InteractiveServer
 
 <PageTitle>Car Descriptions</PageTitle>
 
 <h1>Car Descriptions and Images</h1>
 
-<button class="btn btn-primary me-2" @onclick="GetCarDescriptions" disabled="@isLoading">
+<div class="text-center">
+    <button class="btn btn-primary me-2" @onclick="GetCarDescriptions" disabled="@isLoading">
+        @if (isLoading)
+        {
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            <span> Loading...</span>
+        }
+        else
+        {
+            <span>Get Car Descriptions</span>
+        }
+    </button>
+
     @if (isLoading)
     {
-        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-        <span> Loading...</span>
+        <div class="mt-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <div class="mt-2">
+                <strong>Fetching car descriptions and generating images...</strong>
+            </div>
+        </div>
     }
-    else
-    {
-        <span>Get Car Descriptions</span>
-    }
-</button>
+</div>
 
 @if (!string.IsNullOrEmpty(errorMessage))
 {
@@ -78,6 +93,7 @@
         try
         {
             isLoading = true;
+            StateHasChanged();
             errorMessage = string.Empty;
             basicCarDescription = string.Empty;
             upgradedCarDescription = string.Empty;
@@ -85,14 +101,21 @@
             upgradedCarImageUrl = string.Empty;
 
             var client = ClientFactory.CreateClient();
-            
+
             Console.WriteLine("Fetching car descriptions...");
-            
-            basicCarDescription = await client.GetStringAsync("http://localhost:5144/car/basic");
-            Console.WriteLine($"Basic car response: {basicCarDescription}");
-            
-            upgradedCarDescription = await client.GetStringAsync("http://localhost:5144/car/upgraded");
-            Console.WriteLine($"Upgraded car response: {upgradedCarDescription}");
+
+            //get descriptions by calling classes directly
+            BasicCar basicCar = new BasicCar();
+            basicCarDescription = basicCar.GetDescription();
+
+            UpgradedEngine upgradedEngine = new(6);
+            UpgradedDoor upgradedDoor = new(6);
+            UpgradedHonker upgradedHonker = new(6);
+            UpgradedCar upgradedCar = new(upgradedEngine, upgradedDoor, upgradedHonker);
+            upgradedCarDescription = upgradedCar.GetDescription();
+
+
+
 
             // Generate images using Azure OpenAI
             await GenerateCarImages();
@@ -106,6 +129,7 @@
         finally
         {
             isLoading = false;
+            StateHasChanged();
         }
     }
 

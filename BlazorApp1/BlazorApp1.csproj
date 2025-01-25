@@ -12,4 +12,12 @@
     <PackageReference Include="Azure.Core" Version="1.44.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\OnlineTest\OnlineTest.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Models\" />
+  </ItemGroup>
+
 </Project>
