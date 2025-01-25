@@ -27,6 +27,20 @@ resource webApp 'Microsoft.Web/sites@2022-09-01' = {
     serverFarmId: appServicePlan.id
     httpsOnly: true
     siteConfig: {
+      appSettings: [
+        {
+          name: 'AzureOpenAI__Endpoint'
+          value: 'https://poshared.openai.azure.com/'
+        }
+        {
+          name: 'AzureOpenAI__Key'
+          value: '6FlBrnPuXn2gUjyqVWiFFqu0Ma7I57TUavukI9ZixcaDFmNDhFVdJQQJ99BAACYeBjFXJ3w3AAABACOGIyFf'
+        }
+        {
+          name: 'AzureOpenAI__DeploymentName'
+          value: 'dall-e-3'
+        }
+      ]
       netFrameworkVersion: 'v8.0'
       metadata: [
         {
