@@ -1,0 +1,169 @@
+@page "/"
+@inject IHttpClientFactory ClientFactory
+@inject IConfiguration Configuration
+@using System.Text.Json;
+@using System.Text;
+@using Azure.AI.OpenAI;
+@using Azure.Identity;
+@using Azure;
+@rendermode InteractiveServer
+
+<PageTitle>Car Descriptions</PageTitle>
+
+<h1>Car Descriptions and Images</h1>
+
+<button class="btn btn-primary me-2" @onclick="GetCarDescriptions" disabled="@isLoading">
+    @if (isLoading)
+    {
+        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+        <span> Loading...</span>
+    }
+    else
+    {
+        <span>Get Car Descriptions</span>
+    }
+</button>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger mt-3" role="alert">
+        @errorMessage
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(basicCarDescription) || !string.IsNullOrEmpty(upgradedCarDescription))
+{
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h3 class="card-title">Basic Car</h3>
+                    <div class="card-text">
+                        <p class="lead">@basicCarDescription</p>
+                        @if (!string.IsNullOrEmpty(basicCarImageUrl))
+                        {
+                            <img src="@basicCarImageUrl" alt="Basic Car" class="img-fluid rounded mt-3" style="width: 100%; max-width: 512px;" />
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h3 class="card-title">Upgraded Car</h3>
+                    <div class="card-text">
+                        <p class="lead">@upgradedCarDescription</p>
+                        @if (!string.IsNullOrEmpty(upgradedCarImageUrl))
+                        {
+                            <img src="@upgradedCarImageUrl" alt="Upgraded Car" class="img-fluid rounded mt-3" style="width: 100%; max-width: 512px;" />
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string basicCarDescription = string.Empty;
+    private string upgradedCarDescription = string.Empty;
+    private string errorMessage = string.Empty;
+    private bool isLoading = false;
+    private string basicCarImageUrl = string.Empty;
+    private string upgradedCarImageUrl = string.Empty;
+
+    private async Task GetCarDescriptions()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = string.Empty;
+            basicCarDescription = string.Empty;
+            upgradedCarDescription = string.Empty;
+            basicCarImageUrl = string.Empty;
+            upgradedCarImageUrl = string.Empty;
+
+            var client = ClientFactory.CreateClient();
+            
+            Console.WriteLine("Fetching car descriptions...");
+            
+            basicCarDescription = await client.GetStringAsync("http://localhost:5144/car/basic");
+            Console.WriteLine($"Basic car response: {basicCarDescription}");
+            
+            upgradedCarDescription = await client.GetStringAsync("http://localhost:5144/car/upgraded");
+            Console.WriteLine($"Upgraded car response: {upgradedCarDescription}");
+
+            // Generate images using Azure OpenAI
+            await GenerateCarImages();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+            Console.WriteLine($"Error in operation: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task GenerateCarImages()
+    {
+        try
+        {
+            var endpoint = Configuration["AzureOpenAI:Endpoint"];
+            var deploymentName = Configuration["AzureOpenAI:DeploymentName"];
+
+            if (string.IsNullOrEmpty(endpoint) || string.IsNullOrEmpty(deploymentName))
+            {
+                throw new InvalidOperationException("Azure OpenAI configuration is missing");
+            }
+
+            Console.WriteLine("Creating Azure OpenAI client...");
+            var key = Configuration["AzureOpenAI:Key"];
+            if (string.IsNullOrEmpty(key))
+            {
+                throw new InvalidOperationException("Azure OpenAI API key is missing");
+            }
+
+            var client = new OpenAIClient(
+                new Uri(endpoint),
+                new AzureKeyCredential(key));
+
+            // Generate image for basic car
+            Console.WriteLine("Generating basic car image...");
+            var basicCarResponse = client.GetImageGenerations(
+                new ImageGenerationOptions
+                {
+                    DeploymentName = deploymentName,
+                    Prompt = basicCarDescription,
+                    Size = ImageSize.Size1024x1024
+                });
+            
+            basicCarImageUrl = basicCarResponse.Value.Data[0].Url.ToString();
+            Console.WriteLine($"Basic car image URL: {basicCarImageUrl}");
+
+            // Generate image for upgraded car
+            Console.WriteLine("Generating upgraded car image...");
+            var upgradedCarResponse = client.GetImageGenerations(
+                new ImageGenerationOptions
+                {
+                    DeploymentName = deploymentName,
+                    Prompt = upgradedCarDescription,
+                    Size = ImageSize.Size1024x1024
+                });
+            
+            upgradedCarImageUrl = upgradedCarResponse.Value.Data[0].Url.ToString();
+            Console.WriteLine($"Upgraded car image URL: {upgradedCarImageUrl}");
+
+            Console.WriteLine("Image generation completed successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error generating images: {ex.Message}");
+            throw;
+        }
+    }
+}
